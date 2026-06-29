@@ -8,18 +8,16 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from .dataset import NUMERIC_COLUMNS, SPECIES, load_iris
+from .dataset import DATASET_KEYS, load_dataset
 from .queries import MECHANISMS, QUERY_TYPES, QueryResult, run_query
 
 
-ROWS = load_iris()
-
-
-def _option_tags(values: tuple[str, ...], selected: str | None) -> str:
+def _option_tags(values: tuple[str, ...], selected: str | None, labels: dict[str, str] | None = None) -> str:
     tags = []
     for value in values:
         is_selected = " selected" if value == selected else ""
-        tags.append(f'<option value="{html.escape(value)}"{is_selected}>{html.escape(value)}</option>')
+        text = (labels or {}).get(value, value)
+        tags.append(f'<option value="{html.escape(value)}"{is_selected}>{html.escape(text)}</option>')
     return "\n".join(tags)
 
 
@@ -32,6 +30,34 @@ def _render_result(result: QueryResult | None, error: str | None) -> str:
         )
     if result is None:
         return ""
+
+    if result.released_label is not None:
+        payload = {
+            "true_label": result.true_label,
+            "released_label": result.released_label,
+            "probabilities": {k: round(v, 6) for k, v in (result.probabilities or {}).items()},
+            "rows_used": result.rows_used,
+        }
+        prob_rows = "".join(
+            f'<div class="result-row"><span class="field-label">{html.escape(label)}</span>'
+            f'<strong>{prob:.1%}</strong></div>'
+            for label, prob in (result.probabilities or {}).items()
+        )
+        return f"""
+        <section class="result">
+          <div class="result-row true">
+            <span class="field-label">True mode</span>
+            <strong>{html.escape(result.true_label)}</strong>
+          </div>
+          <div class="result-row release">
+            <span class="field-label">Released mode</span>
+            <strong>{html.escape(result.released_label)}</strong>
+          </div>
+          {prob_rows}
+          <p class="explain">{html.escape(result.explanation)}</p>
+          <pre>{html.escape(json.dumps(payload, indent=2))}</pre>
+        </section>
+        """
 
     payload = {
         "true_value": round(result.true_value, 6),
@@ -60,13 +86,24 @@ def _render_result(result: QueryResult | None, error: str | None) -> str:
 
 
 def render_page(params: dict[str, str], result: QueryResult | None, error: str | None) -> bytes:
+    dataset_key = params.get("dataset", "iris")
+    if dataset_key not in DATASET_KEYS:
+        dataset_key = "iris"
+    dataset = load_dataset(dataset_key)
+
     query = params.get("query", "mean")
     mechanism = params.get("mechanism", "laplace")
-    column = params.get("column", "petal_length")
-    species = params.get("species", "")
+    column = params.get("column", "")
+    if column not in dataset.numeric_columns:
+        column = next(iter(dataset.numeric_columns))
+    category = params.get("category", "")
+    if category not in dataset.categories:
+        category = ""
     epsilon = params.get("epsilon", "1.0")
     delta = params.get("delta", "0.0")
     seed = params.get("seed", "")
+
+    dataset_labels = {key: load_dataset(key).label for key in DATASET_KEYS}
 
     body = f"""<!doctype html>
 <html lang="en">
@@ -153,7 +190,7 @@ def render_page(params: dict[str, str], result: QueryResult | None, error: str |
       <div>
         <p class="eyebrow">Epsilon &middot; Delta &middot; Sensitivity</p>
         <h1>Every answer costs a little privacy.</h1>
-        <p>Drag epsilon below and watch the released values scatter around the true one. Then run the same trade-off over a real excerpt of Fisher's Iris dataset.</p>
+        <p>Drag epsilon below and watch the released values scatter around the true one. Then run the same trade-off over Fisher's Iris dataset or a real OpenDP test sample of California census microdata.</p>
       </div>
       <div class="dial">
         <div class="dial-readout">
@@ -174,6 +211,10 @@ def render_page(params: dict[str, str], result: QueryResult | None, error: str |
     <section class="workspace">
       <form method="get">
         <label class="field">
+          <span class="field-label">Dataset</span>
+          <select name="dataset" onchange="this.form.submit()">{_option_tags(DATASET_KEYS, dataset_key, dataset_labels)}</select>
+        </label>
+        <label class="field">
           <span class="field-label">Query</span>
           <select name="query">{_option_tags(QUERY_TYPES, query)}</select>
         </label>
@@ -183,13 +224,13 @@ def render_page(params: dict[str, str], result: QueryResult | None, error: str |
         </label>
         <label class="field">
           <span class="field-label">Column</span>
-          <select name="column">{_option_tags(tuple(NUMERIC_COLUMNS), column)}</select>
+          <select name="column">{_option_tags(tuple(dataset.numeric_columns), column)}</select>
         </label>
         <label class="field">
-          <span class="field-label">Species</span>
-          <select name="species">
+          <span class="field-label">Category filter</span>
+          <select name="category">
             <option value="">all</option>
-            {_option_tags(SPECIES, species or None)}
+            {_option_tags(dataset.categories, category or None)}
           </select>
         </label>
         <label class="field">
@@ -210,7 +251,8 @@ def render_page(params: dict[str, str], result: QueryResult | None, error: str |
         {_render_result(result, error)}
         <section class="notes">
           <p class="field-label">Reading the knobs</p>
-          <p>Smaller epsilon means stronger privacy and larger noise. Laplace uses delta = 0. Gaussian requires a nonzero delta and uses a normal distribution calibrated to the query sensitivity.</p>
+          <p>Smaller epsilon means stronger privacy and larger noise. Laplace uses delta = 0. Gaussian requires a nonzero delta and uses a normal distribution calibrated to the query sensitivity. Exponential only applies to the mode_category query and picks a real category instead of a noisy number.</p>
+          <p class="explain">Source: {html.escape(dataset.source)}</p>
         </section>
       </div>
     </section>
@@ -308,12 +350,25 @@ class Handler(BaseHTTPRequestHandler):
         if raw:
             try:
                 seed = int(raw["seed"]) if raw.get("seed") else None
+                dataset = load_dataset(raw.get("dataset", "iris"))
+
+                # Column/category select values may be left over from a
+                # different dataset (e.g. switching from Iris to PUMS keeps
+                # "petal_length" in the query string), so clamp them to the
+                # dataset actually being queried instead of erroring.
+                column = raw.get("column")
+                if column not in dataset.numeric_columns:
+                    column = next(iter(dataset.numeric_columns))
+                category = raw.get("category") or None
+                if category is not None and category not in dataset.categories:
+                    category = None
+
                 result = run_query(
-                    ROWS,
+                    dataset,
                     query=raw.get("query", "mean"),
                     mechanism=raw.get("mechanism", "laplace"),
-                    column=raw.get("column", "petal_length"),
-                    species=raw.get("species") or None,
+                    column=column,
+                    category=category,
                     epsilon=float(raw.get("epsilon", "1.0")),
                     delta=float(raw.get("delta", "0.0")),
                     seed=seed,

@@ -1,4 +1,4 @@
-"""Laplace and Gaussian mechanisms implemented from scratch.
+"""Laplace, Gaussian, and Exponential mechanisms implemented from scratch.
 
 The formulas mirror the standard textbook mechanisms used by libraries such as
 Google Differential Privacy and OpenDP, but intentionally avoid depending on
@@ -10,6 +10,9 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
+from typing import Sequence, TypeVar
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -30,6 +33,12 @@ class PrivacyBudget:
             raise ValueError("epsilon must be positive")
         if not 0 < self.delta < 1:
             raise ValueError("Gaussian mechanism requires 0 < delta < 1")
+
+    def validate_for_exponential(self) -> None:
+        if self.epsilon <= 0:
+            raise ValueError("epsilon must be positive")
+        if self.delta != 0:
+            raise ValueError("Exponential mechanism is pure DP, so delta must be 0")
 
 
 def laplace_noise(scale: float, rng: random.Random | None = None) -> float:
@@ -108,3 +117,58 @@ def release_gaussian(
     budget.validate_for_gaussian()
     sigma = gaussian_sigma(sensitivity, budget.epsilon, budget.delta)
     return true_value + gaussian_noise(sigma, rng)
+
+
+def exponential_weights(
+    utilities: Sequence[float],
+    sensitivity: float,
+    epsilon: float,
+) -> list[float]:
+    """Return selection probabilities for the exponential mechanism.
+
+        Pr[output = r] proportional to exp(epsilon * utility(r) / (2 * sensitivity))
+
+    The `/ 2` in the exponent (rather than `/ 1` as in Laplace) accounts for the
+    fact that a single changed row can move the utility of *one* candidate up
+    while moving another candidate's utility down, so the score can swing by
+    twice the sensitivity between neighboring datasets.
+    """
+
+    if sensitivity <= 0:
+        raise ValueError("sensitivity must be positive")
+    if epsilon <= 0:
+        raise ValueError("epsilon must be positive")
+    if not utilities:
+        raise ValueError("utilities must be non-empty")
+
+    scores = [epsilon * u / (2.0 * sensitivity) for u in utilities]
+    # Subtract the max score before exponentiating (log-sum-exp trick) so the
+    # exponential mechanism stays numerically stable for large epsilon/utility.
+    top = max(scores)
+    weights = [math.exp(s - top) for s in scores]
+    total = sum(weights)
+    return [w / total for w in weights]
+
+
+def release_exponential(
+    candidates: Sequence[T],
+    utilities: Sequence[float],
+    sensitivity: float,
+    budget: PrivacyBudget,
+    rng: random.Random | None = None,
+) -> tuple[T, list[float]]:
+    """Privately select a candidate using the exponential mechanism.
+
+    Unlike Laplace/Gaussian, this perturbs the *selection probability* rather
+    than adding noise to a number, so it works for categorical or otherwise
+    non-numeric outputs (e.g. "which species is most common?").
+    """
+
+    budget.validate_for_exponential()
+    if len(candidates) != len(utilities):
+        raise ValueError("candidates and utilities must be the same length")
+
+    probabilities = exponential_weights(utilities, sensitivity, budget.epsilon)
+    rng = rng or random
+    selected = rng.choices(candidates, weights=probabilities, k=1)[0]
+    return selected, probabilities

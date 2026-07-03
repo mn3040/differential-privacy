@@ -292,3 +292,7 @@ calibration, the exponential mechanism, and budget composition.
 The framing of the six core equations above follows Abhishek Tiwari,
 ["Differential Privacy: 6 Key Equations
 Explained"](https://doi.org/10.59350/ntarj-tg210) (2024).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

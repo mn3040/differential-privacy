@@ -6,172 +6,445 @@
   <title>Differential Privacy Demo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #0E1A26;
-      --ink-soft: #15273A;
-      --paper: #ECE7DA;
-      --paper-dim: #DCD5C2;
-      --signal: #FF6B4A;
-      --release: #5FD0C0;
-      --hair: rgba(236, 231, 218, 0.16);
+      --bg: #0b0d14;
+      --panel: #12151f;
+      --panel-alt: #191c2a;
+      --border: #252a3d;
+      --border-strong: #343b55;
+      --text: #d8dce8;
+      --muted: #7d849d;
+      --faint: #5e6580;
+      --accent: #5b9dff;
+      --true: #ff6b4a;
+      --release: #5fd0c0;
+      --warn: #f5c842;
+      --danger: #e05252;
       color-scheme: dark;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-      background: var(--ink);
-      color: var(--paper);
+      background: var(--bg);
+      color: var(--text);
     }
-    * { box-sizing: border-box; }
-    body { margin: 0; }
-    main { max-width: 1040px; margin: 0 auto; padding: 0 20px 64px; }
 
-    .banner { background: var(--ink-soft); border-bottom: 1px solid var(--hair); font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; }
-    .banner-inner { max-width: 1040px; margin: 0 auto; padding: 10px 20px; display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
-    .banner a { color: var(--release); text-decoration: none; }
-    .banner a:hover { text-decoration: underline; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
 
-    .hero { padding: 56px 0 36px; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 32px; align-items: center; }
-    .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--release); margin: 0 0 14px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: clamp(2.1rem, 4.4vw, 3.4rem); line-height: 1.05; margin: 0 0 16px; letter-spacing: -0.01em; }
-    .hero p { line-height: 1.6; color: #C9C2AE; max-width: 46ch; margin: 0; }
-    p { line-height: 1.55; }
-
-    .dial { background: var(--ink-soft); border: 1px solid var(--hair); border-radius: 4px; padding: 16px; }
-    .dial-readout { display: flex; justify-content: space-between; align-items: baseline; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: #9FB0BE; margin-bottom: 10px; }
-    .dial-readout strong { color: var(--paper); font-size: 0.95rem; }
-    canvas { display: block; width: 100%; height: 160px; border-radius: 2px; }
-    .dial-slider { margin-top: 12px; }
-    .dial-slider input { width: 100%; accent-color: var(--signal); }
-    .dial-legend { display: flex; gap: 18px; margin-top: 10px; font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: #9FB0BE; }
-    .dial-legend span { display: inline-flex; align-items: center; gap: 6px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-
-    .workspace { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 20px; align-items: start; margin-top: 36px; }
-
-    form, .result, .notes { background: var(--paper); color: var(--ink); border-radius: 4px; padding: 22px; }
-    form { border-top: 3px solid var(--signal); }
-    .field-label { display: block; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: #5B6B5F; margin-bottom: 6px; }
-    label.field { display: block; margin-bottom: 16px; }
-    input, select { width: 100%; border: 1px solid #C7BFA8; background: #FBF9F2; border-radius: 3px; padding: 9px 10px; font: inherit; color: var(--ink); }
-    input:focus, select:focus, button:focus { outline: 2px solid var(--release); outline-offset: 1px; }
-    button { width: 100%; border: 0; border-radius: 3px; padding: 12px 14px; background: var(--ink); color: var(--paper); font-weight: 600; letter-spacing: 0.01em; cursor: pointer; margin-top: 4px; }
-    button:hover { background: #060d15; }
-    button:disabled { opacity: 0.6; cursor: wait; }
-
-    .result { display: grid; gap: 0; border-top: 3px solid var(--release); min-height: 64px; }
-    .result-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-bottom: 1px solid #D9D1B9; padding: 11px 0; }
-    .result-row:first-of-type { padding-top: 0; }
-    .result-row .field-label { margin: 0; }
-    .result-row strong { font-family: "IBM Plex Mono", monospace; font-size: 1.2rem; }
-    .result-row.true strong { color: var(--signal); }
-    .result-row.release strong { color: #1c8f7f; }
-    .result p.explain { color: #4A5550; font-size: 0.92rem; margin: 14px 0 0; }
-    .result p.placeholder { color: #7A8278; font-size: 0.92rem; margin: 0; }
-    pre { overflow: auto; background: var(--ink); color: #BFD4C9; border-radius: 3px; padding: 12px; font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; margin: 14px 0 0; }
-    .error { border-top-color: #C24E3A; }
-    .error strong { font-family: "IBM Plex Mono", monospace; color: #C24E3A; }
-
-    .notes { margin-top: 18px; border-top: 3px solid var(--paper-dim); }
-    .notes .field-label { margin-bottom: 10px; }
-    .notes p { color: #4A5550; margin: 0; }
-    .notes p + p { margin-top: 8px; }
-
-    @media (max-width: 760px) {
-      .hero { grid-template-columns: 1fr; padding-top: 36px; }
-      .workspace { grid-template-columns: 1fr; }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 2.5rem 1.4rem;
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+      justify-content: space-between;
     }
+
+    h1 {
+      margin: 0 0 0.35rem;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: clamp(1.25rem, 2vw, 1.75rem);
+      line-height: 1.2;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .lede {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    .header-links {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      padding-top: 0.15rem;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .signal-strip {
+      display: flex;
+      gap: 0.6rem 1.3rem;
+      flex-wrap: wrap;
+      padding: 0.75rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .signal {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .swatch {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--accent);
+      flex: 0 0 auto;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+      min-height: calc(100vh - 143px);
+    }
+
+    .query-panel {
+      border-right: 1px solid var(--border);
+      background: var(--panel);
+      min-width: 0;
+    }
+
+    .output-panel {
+      min-width: 0;
+      background:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px),
+        var(--bg);
+      background-size: 28px 28px;
+    }
+
+    .panel-header {
+      padding: 1rem 1.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: baseline;
+    }
+
+    .panel-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .panel-note {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      color: var(--faint);
+    }
+
+    form {
+      padding: 1.25rem 1.5rem 1.5rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.9rem;
+    }
+
+    label.field { display: grid; gap: 0.42rem; min-width: 0; }
+
+    .field-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    select,
+    input {
+      width: 100%;
+      min-height: 2.55rem;
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      background: #0f121b;
+      color: var(--text);
+      padding: 0.62rem 0.7rem;
+      font: inherit;
+      font-size: 0.9rem;
+    }
+
+    select:focus,
+    input:focus,
+    button:focus {
+      outline: 2px solid rgba(91, 157, 255, 0.55);
+      outline-offset: 1px;
+    }
+
+    button {
+      width: 100%;
+      min-height: 2.75rem;
+      border: 0;
+      border-radius: 4px;
+      background: var(--accent);
+      color: var(--bg);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+
+    button:hover { opacity: 0.9; transform: translateY(-1px); }
+    button:disabled { opacity: 0.55; cursor: wait; transform: none; }
+
+    .dial {
+      margin-top: 0.2rem;
+      border: 1px solid var(--border);
+      background: var(--panel-alt);
+      border-radius: 4px;
+      padding: 0.95rem;
+    }
+
+    .dial-readout,
+    .dial-legend {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .dial-readout strong { color: var(--text); font-size: 0.88rem; }
+    canvas { display: block; width: 100%; height: 138px; margin: 0.75rem 0; border-radius: 3px; background: #0c0f17; }
+    .dial-slider input { min-height: auto; padding: 0; accent-color: var(--accent); }
+    .dial-legend { justify-content: flex-start; flex-wrap: wrap; }
+    .dial-legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+    .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+    .output-body {
+      padding: 1.5rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .result,
+    .notes {
+      border: 1px solid var(--border);
+      background: rgba(18, 21, 31, 0.92);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .result {
+      min-height: 222px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-row strong {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: clamp(1.05rem, 2vw, 1.45rem);
+      color: var(--text);
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .result-row.true strong { color: var(--true); }
+    .result-row.release strong { color: var(--release); }
+
+    .result .placeholder,
+    .result .explain,
+    .notes p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .result .placeholder { padding: 1rem; }
+    .result .explain { padding: 1rem; border-bottom: 1px solid var(--border); }
+
+    pre {
+      margin: 0;
+      padding: 1rem;
+      overflow: auto;
+      background: #080a10;
+      color: #a9f4e7;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
+
+    .error { border-color: rgba(224, 82, 82, 0.65); }
+    .error strong {
+      display: block;
+      padding: 1rem 1rem 0;
+      color: var(--danger);
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .notes {
+      padding: 1rem;
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .source-line {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+      color: var(--faint);
+    }
+
+    @media (max-width: 820px) {
+      header { padding: 1.35rem 1.25rem 1rem; flex-direction: column; gap: 0.85rem; }
+      .header-links { justify-content: flex-start; }
+      .signal-strip { padding: 0.7rem 1.25rem; }
+      main { grid-template-columns: 1fr; }
+      .query-panel { border-right: 0; border-bottom: 1px solid var(--border); }
+      .field-grid { grid-template-columns: 1fr; }
+      .output-body, form { padding-left: 1rem; padding-right: 1rem; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      * { animation-duration: 0.001ms !important; }
+      * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
     }
   </style>
 </head>
 <body>
-  <div class="banner">
-    <div class="banner-inner">
-      <span>Static client-side demo &mdash; all math runs in your browser, nothing is sent anywhere.</span>
-      <a href="https://github.com/mn3040/differential-privacy">Python version &amp; source &rarr;</a>
+  <header>
+    <div>
+      <h1>Differential Privacy Workbench</h1>
+      <p class="lede">Run bounded queries over public sample datasets, tune epsilon and delta, and inspect the sensitivity behind each private release.</p>
     </div>
-  </div>
-  <main>
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Epsilon &middot; Delta &middot; Sensitivity</p>
-        <h1>Every answer costs a little privacy.</h1>
-        <p>Drag epsilon below and watch the released values scatter around the true one. Then run the same trade-off over Fisher's Iris dataset or a real OpenDP test sample of California census microdata.</p>
-      </div>
-      <div class="dial">
-        <div class="dial-readout">
-          <span>Privacy dial</span>
-          <strong id="epsReadout">&epsilon; = 1.00</strong>
-        </div>
-        <canvas id="dialCanvas" width="440" height="160" aria-label="Animated preview of noisy draws scattering around a true value as epsilon changes"></canvas>
-        <div class="dial-slider">
-          <input id="epsSlider" type="range" min="0.05" max="4" step="0.05" value="1">
-        </div>
-        <div class="dial-legend">
-          <span><i class="dot" style="background:var(--signal)"></i>true value</span>
-          <span><i class="dot" style="background:var(--release)"></i>released draws</span>
-        </div>
-      </div>
-    </section>
+    <nav class="header-links" aria-label="Project links">
+      <a href="https://github.com/mn3040/differential-privacy">Source</a>
+      <a href="https://github.com/mn3040/differential-privacy/actions/workflows/tests.yml">CI</a>
+      <a href="https://github.com/mn3040/differential-privacy/blob/main/LICENSE">MIT</a>
+    </nav>
+  </header>
 
-    <section class="workspace">
+  <div class="signal-strip" aria-label="Privacy concepts">
+    <span class="signal"><i class="swatch" style="background:var(--accent)"></i>epsilon budget</span>
+    <span class="signal"><i class="swatch" style="background:var(--warn)"></i>delta slack</span>
+    <span class="signal"><i class="swatch" style="background:var(--true)"></i>true value</span>
+    <span class="signal"><i class="swatch" style="background:var(--release)"></i>released draw</span>
+  </div>
+
+  <main>
+    <section class="query-panel">
+      <div class="panel-header">
+        <span class="panel-label">Query controls</span>
+        <span class="panel-note">client-side DP lab</span>
+      </div>
+
       <form id="queryForm">
         <label class="field">
           <span class="field-label">Dataset</span>
           <select id="datasetField" name="dataset"></select>
         </label>
-        <label class="field">
-          <span class="field-label">Query</span>
-          <select id="queryField" name="query">
-            <option value="count">count</option>
-            <option value="sum">sum</option>
-            <option value="mean" selected>mean</option>
-            <option value="mode_category">mode_category</option>
-          </select>
-        </label>
-        <label class="field">
-          <span class="field-label">Mechanism</span>
-          <select id="mechanismField" name="mechanism">
-            <option value="laplace" selected>laplace</option>
-            <option value="gaussian">gaussian</option>
-            <option value="exponential">exponential</option>
-          </select>
-        </label>
-        <label class="field">
-          <span class="field-label">Column</span>
-          <select id="columnField" name="column"></select>
-        </label>
-        <label class="field">
-          <span class="field-label">Category filter</span>
-          <select id="categoryField" name="category"></select>
-        </label>
-        <label class="field">
-          <span class="field-label">Epsilon</span>
-          <input id="epsilonField" name="epsilon" type="number" min="0.01" step="0.01" value="1.0">
-        </label>
-        <label class="field">
-          <span class="field-label">Delta</span>
-          <input id="deltaField" name="delta" type="number" min="0" max="0.999999" step="0.000001" value="0.0">
-        </label>
+
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">Query</span>
+            <select id="queryField" name="query">
+              <option value="count">count</option>
+              <option value="sum">sum</option>
+              <option value="mean" selected>mean</option>
+              <option value="mode_category">mode_category</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Mechanism</span>
+            <select id="mechanismField" name="mechanism">
+              <option value="laplace" selected>laplace</option>
+              <option value="gaussian">gaussian</option>
+              <option value="exponential">exponential</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">Column</span>
+            <select id="columnField" name="column"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">Category filter</span>
+            <select id="categoryField" name="category"></select>
+          </label>
+        </div>
+
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">Epsilon</span>
+            <input id="epsilonField" name="epsilon" type="number" min="0.01" step="0.01" value="1.0">
+          </label>
+          <label class="field">
+            <span class="field-label">Delta</span>
+            <input id="deltaField" name="delta" type="number" min="0" max="0.999999" step="0.000001" value="0.0">
+          </label>
+        </div>
+
         <label class="field">
           <span class="field-label">Seed</span>
-          <input id="seedField" name="seed" type="number" step="1" placeholder="optional">
+          <input id="seedField" name="seed" type="number" step="1" placeholder="blank = fresh draw">
         </label>
+
+        <div class="dial">
+          <div class="dial-readout">
+            <span>noise preview</span>
+            <strong id="epsReadout">epsilon = 1.00</strong>
+          </div>
+          <canvas id="dialCanvas" width="440" height="160" aria-label="Preview of noisy releases around a true value"></canvas>
+          <div class="dial-slider">
+            <input id="epsSlider" type="range" min="0.05" max="4" step="0.05" value="1">
+          </div>
+          <div class="dial-legend">
+            <span><i class="dot" style="background:var(--true)"></i>true</span>
+            <span><i class="dot" style="background:var(--release)"></i>released draws</span>
+          </div>
+        </div>
+
         <button type="submit" id="runButton">Run private query</button>
       </form>
-      <div>
+    </section>
+
+    <section class="output-panel">
+      <div class="panel-header">
+        <span class="panel-label">Private release</span>
+        <span class="panel-note">sensitivity calibrated</span>
+      </div>
+      <div class="output-body">
         <section class="result" id="resultPanel">
-          <p class="placeholder">Run a query to see the true and released values.</p>
+          <p class="placeholder">Run a query to see the true value, released value, sensitivity, and machine-readable payload.</p>
         </section>
         <section class="notes">
           <p class="field-label">Reading the knobs</p>
-          <p>Smaller epsilon means stronger privacy and larger noise. Laplace uses delta = 0. Gaussian requires a nonzero delta and uses a normal distribution calibrated to the query sensitivity. Exponential only applies to the mode_category query and picks a real category instead of a noisy number.</p>
-          <p id="sourceNote" class="explain"></p>
+          <p>Smaller epsilon means stronger privacy and larger noise. Laplace uses delta = 0. Gaussian requires a nonzero delta. Exponential only applies to mode_category and returns a real category instead of a noisy number.</p>
+          <p id="sourceNote" class="source-line"></p>
         </section>
       </div>
     </section>
   </main>
+
   <script src="app.js"></script>
 </body>
 </html>

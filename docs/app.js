@@ -425,7 +425,7 @@ async function init() {
 
   function setEpsilon(value) {
     const eps = Math.max(0.05, parseFloat(value) || 1);
-    readout.textContent = "ε = " + eps.toFixed(2);
+    readout.textContent = "epsilon = " + eps.toFixed(2);
     seedPoints(eps);
   }
   slider.addEventListener("input", () => {

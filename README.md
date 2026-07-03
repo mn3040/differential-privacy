@@ -259,9 +259,10 @@ instead of blowing through it linearly.
 That `42%` savings is not a one-off claim. `advanced_savings_sweep` checks
 multiple `(k, epsilon)` combinations and records where advanced composition
 helps, where it does not, and how the savings changes as repeated queries
-grow. The full sweep is in
-[`docs/data/composition_savings_sweep.csv`](docs/data/composition_savings_sweep.csv).
-The chart below can be regenerated from that CSV with matplotlib:
+grow. The full sweep is checked in as
+[`docs/data/composition_savings_sweep.csv`](docs/data/composition_savings_sweep.csv),
+and the SVG chart below is generated from that CSV with matplotlib via
+[`scripts/render_composition_chart.py`](scripts/render_composition_chart.py):
 
 ```powershell
 python -m pip install matplotlib
@@ -269,6 +270,8 @@ python scripts/render_composition_chart.py
 ```
 
 ![Line chart showing advanced composition epsilon savings increasing as k grows](docs/composition_savings.svg)
+
+Generated artifact: [`docs/composition_savings.svg`](docs/composition_savings.svg).
 
 For `epsilon = 0.1`, the trend is:
 

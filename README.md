@@ -261,6 +261,12 @@ multiple `(k, epsilon)` combinations and records where advanced composition
 helps, where it does not, and how the savings changes as repeated queries
 grow. The full sweep is in
 [`docs/data/composition_savings_sweep.csv`](docs/data/composition_savings_sweep.csv).
+The chart below can be regenerated from that CSV with matplotlib:
+
+```powershell
+python -m pip install matplotlib
+python scripts/render_composition_chart.py
+```
 
 ![Line chart showing advanced composition epsilon savings increasing as k grows](docs/composition_savings.svg)
 

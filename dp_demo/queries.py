@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 
 from .dataset import Dataset
-from .mechanisms import PrivacyBudget, release_exponential, release_gaussian, release_laplace
+from .mechanisms import PrivacyBudget, make_rng, release_exponential, release_gaussian, release_laplace
 
 
 MECHANISMS = ("laplace", "gaussian", "exponential")
@@ -57,7 +56,7 @@ def run_query(
         raise ValueError("the exponential mechanism only applies to the mode_category query")
 
     filtered = [row for row in dataset.rows if category is None or dataset.category(row) == category]
-    rng = random.Random(seed)
+    rng = make_rng(seed)
     budget = PrivacyBudget(epsilon=epsilon, delta=delta)
 
     result_column = column

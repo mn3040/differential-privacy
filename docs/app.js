@@ -58,6 +58,13 @@ async function loadDataset(key) {
     if (!r.ok) throw new Error(`could not load ${meta.file}: HTTP ${r.status}`);
     return r.text();
   });
+  const dataset = buildDatasetFromCsv(key, text);
+  datasetCache[key] = dataset;
+  return dataset;
+}
+
+function buildDatasetFromCsv(key, text) {
+  const meta = DATASETS[key];
   const raw = parseCsv(text);
   const numericFields = Object.keys(meta.numericColumns);
   const rows = raw.map((raw) => {
@@ -69,9 +76,7 @@ async function loadDataset(key) {
     row[meta.categoryColumn] = meta.categoryMap ? meta.categoryMap[label] || label : label;
     return row;
   });
-  const dataset = { ...meta, key, rows };
-  datasetCache[key] = dataset;
-  return dataset;
+  return { ...meta, key, rows };
 }
 
 function clip(dataset, column, value) {
@@ -79,10 +84,9 @@ function clip(dataset, column, value) {
   return Math.min(Math.max(value, lower), upper);
 }
 
-// --- Seedable PRNG (mulberry32) so the optional "seed" field is repeatable
-// within this page. It will not reproduce the same draws as the Python
-// CLI/server -- both implement the formulas independently in their own
-// language's RNG -- but repeats are deterministic within the browser.
+// --- Seedable PRNG (mulberry32) so the optional "seed" field is repeatable.
+// The Python implementation uses the same seeded RNG + Box-Muller Gaussian,
+// and tests compare exact releases across both languages.
 function makeRng(seed) {
   if (seed === null || seed === undefined || Number.isNaN(seed)) {
     return Math.random;
@@ -435,4 +439,20 @@ async function init() {
   }
 }
 
-init();
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  init();
+}
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    DATASETS,
+    QUERY_TYPES,
+    MECHANISMS,
+    buildDatasetFromCsv,
+    exponentialWeights,
+    gaussianSigma,
+    laplaceScale,
+    parseCsv,
+    runQuery,
+  };
+}

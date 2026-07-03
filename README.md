@@ -1,5 +1,7 @@
 # Differential Privacy Library Demo
 
+[![tests](https://github.com/mn3040/differential-privacy/actions/workflows/tests.yml/badge.svg)](https://github.com/mn3040/differential-privacy/actions/workflows/tests.yml)
+
 This is a small educational differential privacy project. It implements the
 Laplace, Gaussian, and Exponential mechanisms from scratch in Python, exposes
 a query interface over two bundled datasets (Fisher's Iris flowers and a
@@ -96,9 +98,10 @@ enabled, the site is served at `https://<username>.github.io/<repo>/`.
 
 The JS port intentionally mirrors `dp_demo/mechanisms.py`, `dataset.py`, and
 `queries.py` line-for-line where possible (see the comment at the top of
-`app.js`) so the two stay easy to keep in sync — the Python package remains
-the canonical, tested implementation; the static site is a convenience
-mirror for browsing without installing anything.
+`app.js`) so the two stay easy to keep in sync. `tests/test_js_parity.py`
+runs the same seeded Laplace, Gaussian, and Exponential queries through both
+implementations and compares the releases exactly, so drift between the
+Python package and static site fails CI instead of living as a prose warning.
 
 ## The Definition Everything Else Is Built On
 

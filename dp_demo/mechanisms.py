@@ -10,9 +10,66 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
-from typing import Sequence, TypeVar
+from typing import Protocol, Sequence, TypeVar
 
 T = TypeVar("T")
+
+
+class RandomSource(Protocol):
+    """Small RNG surface used by the mechanisms."""
+
+    def random(self) -> float:
+        ...
+
+    def gauss(self, mu: float, sigma: float) -> float:
+        ...
+
+
+class CrossLanguageRng:
+    """Seeded RNG matching the browser demo's mulberry32 + Box-Muller draws."""
+
+    def __init__(self, seed: int) -> None:
+        self._state = _to_int32(seed & 0xFFFFFFFF or 1)
+
+    def random(self) -> float:
+        self._state = _to_int32(self._state)
+        self._state = _to_int32(self._state + 0x6D2B79F5)
+        t = self._state
+        t = _imul(t ^ _urshift(t, 15), 1 | t)
+        t = _to_int32(t + _imul(t ^ _urshift(t, 7), 61 | t)) ^ t
+        return _urshift(t ^ _urshift(t, 14), 0) / 4294967296
+
+    def gauss(self, mu: float, sigma: float) -> float:
+        u1 = max(self.random(), 1e-12)
+        u2 = self.random()
+        z = math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
+        return mu + z * sigma
+
+
+def _imul(a: int, b: int) -> int:
+    """Return JavaScript Math.imul-compatible signed 32-bit multiplication."""
+
+    result = ((a & 0xFFFFFFFF) * (b & 0xFFFFFFFF)) & 0xFFFFFFFF
+    return _to_int32(result)
+
+
+def _to_int32(value: int) -> int:
+    value &= 0xFFFFFFFF
+    return value if value < 0x80000000 else value - 0x100000000
+
+
+def _urshift(value: int, bits: int) -> int:
+    return (value & 0xFFFFFFFF) >> bits
+
+
+def make_rng(seed: int | None = None) -> random.Random | CrossLanguageRng:
+    """Return a random source.
+
+    Seeded runs intentionally match the GitHub Pages JavaScript implementation
+    so parity tests can compare exact noisy releases across languages.
+    """
+
+    return CrossLanguageRng(seed) if seed is not None else random.Random()
 
 
 @dataclass(frozen=True)
@@ -41,7 +98,7 @@ class PrivacyBudget:
             raise ValueError("Exponential mechanism is pure DP, so delta must be 0")
 
 
-def laplace_noise(scale: float, rng: random.Random | None = None) -> float:
+def laplace_noise(scale: float, rng: RandomSource | None = None) -> float:
     """Sample Laplace(0, scale) noise using inverse transform sampling."""
 
     if scale < 0:
@@ -51,10 +108,11 @@ def laplace_noise(scale: float, rng: random.Random | None = None) -> float:
 
     rng = rng or random
     u = rng.random() - 0.5
-    return -scale * math.copysign(math.log1p(-2.0 * abs(u)), u)
+    sign = 1.0 if u > 0 else -1.0
+    return -scale * sign * math.log1p(-2.0 * abs(u))
 
 
-def gaussian_noise(sigma: float, rng: random.Random | None = None) -> float:
+def gaussian_noise(sigma: float, rng: RandomSource | None = None) -> float:
     """Sample Gaussian(0, sigma) noise."""
 
     if sigma < 0:
@@ -98,7 +156,7 @@ def release_laplace(
     true_value: float,
     sensitivity: float,
     budget: PrivacyBudget,
-    rng: random.Random | None = None,
+    rng: RandomSource | None = None,
 ) -> float:
     """Release a numeric query with Laplace noise."""
 
@@ -110,7 +168,7 @@ def release_gaussian(
     true_value: float,
     sensitivity: float,
     budget: PrivacyBudget,
-    rng: random.Random | None = None,
+    rng: RandomSource | None = None,
 ) -> float:
     """Release a numeric query with Gaussian noise."""
 
@@ -155,7 +213,7 @@ def release_exponential(
     utilities: Sequence[float],
     sensitivity: float,
     budget: PrivacyBudget,
-    rng: random.Random | None = None,
+    rng: RandomSource | None = None,
 ) -> tuple[T, list[float]]:
     """Privately select a candidate using the exponential mechanism.
 
@@ -170,5 +228,12 @@ def release_exponential(
 
     probabilities = exponential_weights(utilities, sensitivity, budget.epsilon)
     rng = rng or random
-    selected = rng.choices(candidates, weights=probabilities, k=1)[0]
+    draw = rng.random()
+    accumulated = 0.0
+    selected = candidates[-1]
+    for candidate, probability in zip(candidates, probabilities):
+        accumulated += probability
+        if draw <= accumulated:
+            selected = candidate
+            break
     return selected, probabilities

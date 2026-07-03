@@ -256,6 +256,25 @@ composition is the whole reason large query workloads (e.g. training a
 model with many gradient steps) stay within a usable privacy budget
 instead of blowing through it linearly.
 
+That `42%` savings is not a one-off claim. `advanced_savings_sweep` checks
+multiple `(k, epsilon)` combinations and records where advanced composition
+helps, where it does not, and how the savings changes as repeated queries
+grow. The full sweep is in
+[`docs/data/composition_savings_sweep.csv`](docs/data/composition_savings_sweep.csv).
+
+![Line chart showing advanced composition epsilon savings increasing as k grows](docs/composition_savings.svg)
+
+For `epsilon = 0.1`, the trend is:
+
+| k | sequential epsilon | advanced epsilon | savings |
+|---:|---:|---:|---:|
+| 10 | 1.0 | 1.6174 | -61.7% |
+| 25 | 2.5 | 2.6493 | -6.0% |
+| 50 | 5.0 | 3.8929 | 22.1% |
+| 100 | 10.0 | 5.7985 | 42.0% |
+| 250 | 25.0 | 10.0871 | 59.7% |
+| 500 | 50.0 | 15.7298 | 68.5% |
+
 | | Sequential | Advanced |
 |---|---|---|
 | Formula | `sum(epsilon_i)` | `sqrt(2k ln(1/delta')) * epsilon + k * epsilon^2` |
@@ -263,6 +282,14 @@ instead of blowing through it linearly.
 | Failure probability | Exact, `delta = 0` unless mechanisms use one | Adds slack `delta'` |
 | Scaling with `k` | Linear | Roughly `sqrt(k)` |
 | When to use | Few queries, or mixed mechanisms | Many repeats of one mechanism |
+
+Advanced composition is not free. It only applies cleanly when the same
+`(epsilon, delta)` guarantee is repeated `k` times, the mechanisms are run
+through the composition theorem's assumptions, and you are willing to spend
+the extra failure probability `delta'`. For small `k`, it can be worse than
+plain sequential composition, as the negative savings rows above show. In a
+production system, you would usually use a mature accountant such as RDP,
+zCDP, or PLD accounting rather than this textbook bound.
 
 For production systems, use a mature library such as OpenDP or Google
 Differential Privacy --- both implement much tighter composition (Renyi

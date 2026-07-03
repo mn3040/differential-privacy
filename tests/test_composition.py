@@ -2,6 +2,7 @@ import unittest
 
 from dp_demo.composition import (
     advanced_composition,
+    advanced_savings_sweep,
     global_sensitivity_mean,
     local_sensitivity_mean,
     sequential_composition,
@@ -24,6 +25,13 @@ class CompositionTests(unittest.TestCase):
         sequential = sequential_composition([epsilon] * k)
         advanced = advanced_composition(k=k, epsilon=epsilon, delta=1e-5, delta_prime=1e-5)
         self.assertLess(advanced.epsilon, sequential.epsilon)
+
+    def test_advanced_savings_sweep_shows_crossover(self) -> None:
+        rows = advanced_savings_sweep([10, 100], [0.1], delta=1e-5, delta_prime=1e-5)
+        small_k, large_k = rows
+        self.assertLess(small_k.savings_percent, 0.0)
+        self.assertAlmostEqual(large_k.savings_percent, 42.0, places=1)
+        self.assertGreater(large_k.savings_percent, small_k.savings_percent)
 
     def test_local_sensitivity_never_exceeds_global(self) -> None:
         lower, upper, n = 1.0, 7.0, 10

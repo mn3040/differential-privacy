@@ -21,6 +21,19 @@ class CompositionResult:
     explanation: str
 
 
+@dataclass(frozen=True)
+class CompositionSweepRow:
+    k: int
+    epsilon_per_query: float
+    sequential_epsilon: float
+    advanced_epsilon: float
+    savings_fraction: float
+
+    @property
+    def savings_percent(self) -> float:
+        return self.savings_fraction * 100.0
+
+
 def sequential_composition(epsilons: Sequence[float], deltas: Sequence[float] | None = None) -> CompositionResult:
     """Basic composition: privacy costs simply add up.
 
@@ -88,6 +101,38 @@ def advanced_composition(k: int, epsilon: float, delta: float, delta_prime: floa
             f"= {total_epsilon:.6g}, delta_total = k*delta + delta' = {total_delta:.6g}."
         ),
     )
+
+
+def advanced_savings_sweep(
+    ks: Sequence[int],
+    epsilons: Sequence[float],
+    delta: float,
+    delta_prime: float,
+) -> list[CompositionSweepRow]:
+    """Compare sequential vs advanced composition across many settings.
+
+    Positive savings means advanced composition spends less epsilon than
+    sequential composition. Negative savings is possible for small workloads,
+    which is an important caveat: advanced composition is a bound, not a
+    universal discount.
+    """
+
+    rows: list[CompositionSweepRow] = []
+    for epsilon in epsilons:
+        for k in ks:
+            sequential = sequential_composition([epsilon] * k, [delta] * k)
+            advanced = advanced_composition(k, epsilon, delta, delta_prime)
+            savings_fraction = 1.0 - advanced.epsilon / sequential.epsilon
+            rows.append(
+                CompositionSweepRow(
+                    k=k,
+                    epsilon_per_query=epsilon,
+                    sequential_epsilon=sequential.epsilon,
+                    advanced_epsilon=advanced.epsilon,
+                    savings_fraction=savings_fraction,
+                )
+            )
+    return rows
 
 
 def global_sensitivity_mean(lower: float, upper: float, n: int) -> float:

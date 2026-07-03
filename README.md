@@ -263,10 +263,4 @@ exponential mechanism, and budget composition.
 
 The framing of the six core equations above follows Abhishek Tiwari,
 ["Differential Privacy: 6 Key Equations Explained"](https://doi.org/10.59350/ntarj-tg210)
-(2024), which is itself a readable summary of:
-
-- C. Dwork, F. McSherry, K. Nissim, A. Smith, "Calibrating Noise to
-  Sensitivity in Private Data Analysis," TCC 2006.
-- F. McSherry, K. Talwar, "Mechanism Design via Differential Privacy," FOCS 2007.
-- K. Nissim, S. Raskhodnikova, A. Smith, "Smooth Sensitivity and Sampling in
-  Private Data Analysis," STOC 2007.
+(2024).

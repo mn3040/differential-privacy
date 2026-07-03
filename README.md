@@ -308,6 +308,26 @@ choices, including `mode_category`; `tests/test_composition.py` covers
 the sequential/advanced composition formulas and the global-vs-local
 sensitivity comparison.
 
+## OpenDP Validation
+
+The project intentionally implements the mechanisms from scratch, but it also
+includes an optional trusted-reference check against OpenDP. Install OpenDP in
+the Python environment you are using, then run:
+
+```powershell
+python -m pip install opendp
+python scripts/validate_against_opendp.py
+```
+
+The script runs the same Iris `petal_width` sum query through this demo's
+Laplace/Gaussian releases and OpenDP's `make_laplace` / `make_gaussian`
+measurements using the same calibrated scale. It reports empirical means and
+standard deviations for both implementations and fails if either implementation
+drifts too far from the shared theoretical distribution moments. The unit test
+`tests/test_opendp_validation.py` skips when OpenDP is not installed, so the
+core demo stays dependency-light while still supporting a stronger validation
+path.
+
 ## Learn By Experimenting
 
 See [docs/learning_path.md](docs/learning_path.md) for a guided sequence

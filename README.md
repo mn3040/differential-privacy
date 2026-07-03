@@ -39,17 +39,10 @@ the math from start to finish.
 
 ## Datasets
 
-  ------------------------------------------------------------------------------------------------------------------------------
-  key               rows              what's in it      source
-  ----------------- ----------------- ----------------- ------------------------------------------------------------------------
-  `iris` (default)  30                4 flower          bundled excerpt of Fisher's Iris dataset
-                                      measurements +    
-                                      species           
-
-  `pums`            1000              age, education,   [opendp/dp-test-datasets](https://github.com/opendp/dp-test-datasets),
-                                      income, marital   `data/PUMS_california_demographics_1000`
-                                      status            
-  ------------------------------------------------------------------------------------------------------------------------------
+| key | rows | what's in it | source |
+|---|---:|---|---|
+| `iris` (default) | 30 | 4 flower measurements + species | bundled excerpt of Fisher's Iris dataset |
+| `pums` | 1000 | age, education, income, marital status | [opendp/dp-test-datasets](https://github.com/opendp/dp-test-datasets), `data/PUMS_california_demographics_1000` |
 
 The PUMS sample is real (if dated and de-identified) California census
 microdata, used as-is from OpenDP's own test fixtures. Numeric columns
@@ -62,43 +55,43 @@ teaching, not redistribution as a dataset in its own right.
 
 ## Run the CLI
 
-``` powershell
+```powershell
 python -m dp_demo.cli --dataset iris --query mean --column petal_length --category setosa --mechanism laplace --epsilon 1 --seed 42
 ```
 
 Run the same query against the PUMS sample instead:
 
-``` powershell
+```powershell
 python -m dp_demo.cli --dataset pums --query mean --column income --mechanism laplace --epsilon 1 --seed 42
 ```
 
 Gaussian requires a nonzero delta:
 
-``` powershell
+```powershell
 python -m dp_demo.cli --dataset iris --query count --mechanism gaussian --epsilon 1 --delta 0.000001 --seed 42
 ```
 
 Exponential picks a category instead of perturbing a number:
 
-``` powershell
+```powershell
 python -m dp_demo.cli --dataset pums --query mode_category --mechanism exponential --epsilon 2 --seed 42
 ```
 
 Total privacy spend across repeated queries:
 
-``` powershell
+```powershell
 python -m dp_demo.cli compose --method advanced --k 100 --epsilon 0.1 --delta 1e-5 --delta-prime 1e-5
 ```
 
 ## Run the Web Demo
 
-``` powershell
+```powershell
 python -m dp_demo.app --port 8765
 ```
 
 Then open:
 
-``` text
+```text
 http://127.0.0.1:8765
 ```
 
@@ -133,7 +126,7 @@ A randomized mechanism `M` satisfies `epsilon`-differential privacy if,
 for every pair of neighboring datasets `D` and `D'` (differing in one
 row) and every measurable output set `S`:
 
-``` text
+```text
 Pr[M(D) in S] <= e^epsilon * Pr[M(D') in S]
 ```
 
@@ -148,7 +141,7 @@ included.
 
 For a numeric query `f(D)` with L1 sensitivity `S`, the release is:
 
-``` text
+```text
 f(D) + Laplace(0, S / epsilon)
 ```
 
@@ -158,7 +151,7 @@ This gives pure epsilon-DP when the sensitivity is correct.
 
 For a numeric query `f(D)` with L2 sensitivity `S`, the release is:
 
-``` text
+```text
 f(D) + Normal(0, sigma)
 sigma = sqrt(2 ln(1.25 / delta)) * S / epsilon
 ```
@@ -174,7 +167,7 @@ would just destroy the answer), the exponential mechanism instead
 perturbs *which* candidate gets selected, weighted by a utility function
 `u(D, r)`:
 
-``` text
+```text
 Pr[M(D) = r] proportional to exp(epsilon * u(D, r) / (2 * sensitivity_u))
 ```
 
@@ -211,7 +204,7 @@ That's why the mean's sensitivity uses the public clipping bounds
 *Local* sensitivity instead measures the worst case for one specific
 dataset `D`:
 
-``` text
+```text
 global: LS_f      = max over all neighboring (D, D') of |f(D) - f(D')|
 local:  LS_f(D)   = max over neighbors D' of D of |f(D) - f(D')|
 ```
@@ -232,7 +225,7 @@ spend:
 
 **Sequential composition** --- exact, no assumptions, just adds up:
 
-``` text
+```text
 epsilon_total = sum(epsilon_i)
 delta_total   = sum(delta_i)
 ```
@@ -243,7 +236,7 @@ Three queries at `epsilon = 0.5, 0.3, 0.2` cost `epsilon_total = 1.0`.
 repeats of the *same* `(epsilon, delta)` mechanism, at the cost of an
 extra failure probability `delta'`:
 
-``` text
+```text
 epsilon_total = sqrt(2 k ln(1/delta')) * epsilon + k * epsilon^2
 delta_total   = k * delta + delta'
 ```
@@ -251,7 +244,7 @@ delta_total   = k * delta + delta'
 For `k = 100` queries at `(epsilon = 0.1, delta = 1e-5)` with
 `delta' = 1e-5`:
 
-``` text
+```text
 sqrt(2 * 100 * ln(1e5)) * 0.1 = 4.7986
 100 * 0.1^2                  = 1.0
 epsilon_total                 ~= 5.8
@@ -263,22 +256,13 @@ composition is the whole reason large query workloads (e.g. training a
 model with many gradient steps) stay within a usable privacy budget
 instead of blowing through it linearly.
 
-  ---------------------------------------------------------------------------------------------------
-                          Sequential              Advanced
-  ----------------------- ----------------------- ---------------------------------------------------
-  Formula                 `sum(epsilon_i)`        `sqrt(2k ln(1/delta')) * epsilon + k * epsilon^2`
-
-  Assumptions             None                    Same `(epsilon, delta)` repeated `k` times
-
-  Failure probability     Exact, `delta = 0`      Adds slack `delta'`
-                          unless mechanisms use   
-                          one                     
-
-  Scaling with `k`        Linear                  Roughly `sqrt(k)`
-
-  When to use             Few queries, or mixed   Many repeats of one mechanism
-                          mechanisms              
-  ---------------------------------------------------------------------------------------------------
+| | Sequential | Advanced |
+|---|---|---|
+| Formula | `sum(epsilon_i)` | `sqrt(2k ln(1/delta')) * epsilon + k * epsilon^2` |
+| Assumptions | None | Same `(epsilon, delta)` repeated `k` times |
+| Failure probability | Exact, `delta = 0` unless mechanisms use one | Adds slack `delta'` |
+| Scaling with `k` | Linear | Roughly `sqrt(k)` |
+| When to use | Few queries, or mixed mechanisms | Many repeats of one mechanism |
 
 For production systems, use a mature library such as OpenDP or Google
 Differential Privacy --- both implement much tighter composition (Renyi
@@ -287,7 +271,7 @@ the mechanism and composition math are easy to inspect and test.
 
 ## Tests
 
-``` powershell
+```powershell
 python -m unittest discover
 ```
 
